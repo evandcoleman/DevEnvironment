@@ -44,9 +44,11 @@
 }
 
 - (void)beginShell {
+    [self startCommands];
+    
     BOOL flag = YES;
     while (flag) {
-        printf("Enter a command:\n");
+        //printf("Enter a command:\n");
         char input[50];
         scanf(" %[^\t\n]", input);
         NSArray *args = [[NSString stringWithUTF8String:input] componentsSeparatedByString:@" "];
@@ -54,8 +56,8 @@
         
         if ([kHelpCommand containsObject:command]) {
             [self showHelp];
-        } else if ([kStartCommand containsObject:command]) {
-            [self startCommands];
+//        } else if ([kStartCommand containsObject:command]) {
+//            [self startCommands];
         } else if ([kExitCommand containsObject:command]) {
             [self endCommands];
             flag = NO;
@@ -70,37 +72,39 @@
 }
 
 - (void)startCommands {
-    for (NSMutableDictionary *dict in self.commandsToRun) {
-        NSString *command = dict[kCommandKey];
-        NSArray *args = dict[kArgsKey];
-        
-        printf("Starting %s...\n", [[[command pathComponents] lastObject] UTF8String]);
-        
-        NSTask *task = [[NSTask alloc] init];
-        [task setLaunchPath:command];
-        [task setArguments:args];
-        
-        dict[kTaskKey] = task;
-        
-        NSPipe *pipe = [NSPipe pipe];
-        [task setStandardInput:pipe];
-        [task setStandardOutput:pipe];
-        [task setStandardError:pipe];
-        
-        dict[kPipeKey] = pipe;
-        
-        [task launch];
-    }
+    [self.commandsToRun enumerateObjectsUsingBlock:^(NSMutableDictionary *dict, NSUInteger idx, BOOL *stop) {
+        if (![(NSTask *)dict[kTaskKey] isRunning]) {
+            NSString *command = dict[kCommandKey];
+            NSArray *args = dict[kArgsKey];
+            
+            printf("Launching %s...\n", [[[command pathComponents] lastObject] UTF8String]);
+            
+            NSTask *task = [[NSTask alloc] init];
+            [task setLaunchPath:command];
+            [task setArguments:args];
+            
+            dict[kTaskKey] = task;
+            
+            NSPipe *pipe = [NSPipe pipe];
+            //[task setStandardInput:pipe];
+            [task setStandardOutput:pipe];
+            [task setStandardError:pipe];
+            
+            dict[kPipeKey] = pipe;
+            
+            [task launch];
+        }
+    }];
 }
 
 - (void)endCommands {
-    for (NSMutableDictionary *dict in self.commandsToRun) {
+    [self.commandsToRun enumerateObjectsUsingBlock:^(NSMutableDictionary *dict, NSUInteger idx, BOOL *stop) {
         NSTask *task = dict[kTaskKey];
         
-        printf("Stopping %s...\n", [[[dict[kCommandKey] pathComponents] lastObject] UTF8String]);
+        printf("Exiting %s...\n", [[[dict[kCommandKey] pathComponents] lastObject] UTF8String]);
         
         [task terminate];
-    }
+    }];
 }
 
 - (void)logCommand:(NSString *)command {
@@ -114,7 +118,8 @@
     }];
     NSArray *matches = [self.commandsToRun filteredArrayUsingPredicate:predicate];
     if ([matches count] > 0) {
-        [self tailLogsForCommand:matches[0]];
+        //[self tailLogsForCommand:matches[0]];
+        printf("Not implemented yet");
     } else {
         printf("Command '%s' not found\n", [command UTF8String]);
     }
@@ -133,15 +138,13 @@
     printf("\tlog     Tails the logs for a command\n");
 }
 
-- (void)tailLogsForCommand:(NSDictionary *)dict {
-    NSTask *task = dict[kTaskKey];
-    
-}
-
-- (void)spawnNewTab {
-    NSAppleScript *key = [[NSAppleScript alloc] initWithSource:@"tell application \"System Events\" to keystroke \"t\" using {command down}"];
-    [key executeAndReturnError:nil];
-}
+//- (void)tailLogsForCommand:(NSDictionary *)dict {
+//    NSPipe *pipe = dict[kPipeKey];
+//    NSFileHandle *fileHandle = [pipe fileHandleForReading];
+//    NSData *data = [fileHandle availableData];
+//    NSString *string = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+//    NSLog(@"%@", string);
+//}
 
 #pragma mark - Convenience Methods
 
